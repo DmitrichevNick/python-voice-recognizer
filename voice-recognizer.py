@@ -20,9 +20,13 @@ class ListenerThread(Thread):
         self.voice_recognizer.phrase_threshold = 0.001
     
     def run(self):
+        waiter_thread = WaiterThread("waiter-thread")
+        waiter_thread.start()
         while True:
+            waiter_thread.running = True
             with sr.Microphone() as source:
                 audio_text = self.voice_recognizer.listen(source)
+                waiter_thread.running = False
 
                 try:
                     text = self.voice_recognizer.recognize_google(audio_text, language=language)
@@ -30,9 +34,29 @@ class ListenerThread(Thread):
                         messages_stack.append(text)
                         write_text(messages_stack.pop())
                         print(text)
+                        waiter_thread.running = True
                 except Exception as exception:
                     nope = 0
-                    #print(str(exception))
+
+class WaiterThread(Thread):
+    running = False
+    def __init__(self, name):
+        print("waiter created")
+        Thread.__init__(self)
+        self.name = name
+    
+    def run(self):
+        while True:
+            sleep = 0
+            while self.running:
+                time.sleep(1)
+                sleep += 1
+                if sleep == 10:
+                    clear_text()
+                    sleep = 0
+            sleep = 0
+                
+            
 
 def create_threads(): 
     listener_thread = ListenerThread("listener-thread")
@@ -40,7 +64,12 @@ def create_threads():
 
 def write_text(text):
     f = codecs.open(path, "a", "utf-8")
-    f.write(str(text).upper()+'\n')
+    f.write("   "+str(text).upper()+'\n')
+    f.close()
+
+def clear_text():
+    f = codecs.open(path, "w", "utf-8")
+    f.write("")
     f.close()
 
 create_threads()
